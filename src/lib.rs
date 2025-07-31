@@ -1,4 +1,5 @@
 mod dsp;
+mod editor;
 mod params;
 
 use fundsp::hacker32::*;
@@ -6,7 +7,7 @@ use nih_plug::prelude::*;
 use params::SpectrumAnalyzerParams;
 use std::sync::Arc;
 
-use crate::dsp::build_graph;
+use crate::{dsp::build_graph, editor::PluginGui};
 
 // This is a shortened version of the gain example with most comments removed, check out
 // https://github.com/robbert-vdh/nih-plug/blob/master/plugins/examples/gain/src/lib.rs to get
@@ -79,6 +80,10 @@ impl Plugin for SpectrumAnalyzer {
     }
 
     // TODO: do we need reset() to reset fundsp buffers?
+
+    fn editor(&mut self, _: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
+        PluginGui::new(&self.params.state)
+    }
 
     fn process(
         &mut self,

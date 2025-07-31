@@ -1,4 +1,7 @@
-use nih_plug::prelude::*;
+use std::sync::Arc;
+
+use nih_plug::{params::persist, prelude::*};
+use nih_plug_webview::WebViewState;
 
 #[derive(Params)]
 pub struct SpectrumAnalyzerParams {
@@ -8,11 +11,16 @@ pub struct SpectrumAnalyzerParams {
     /// gain parameter is stored as linear gain while the values are displayed in decibels.
     #[id = "gain"]
     pub gain: FloatParam,
+
+    #[persist = "webview_state"]
+    pub state: Arc<WebViewState>,
 }
 
 impl Default for SpectrumAnalyzerParams {
     fn default() -> Self {
         Self {
+            state: Arc::new(WebViewState::new(600.0, 600.0)),
+
             // This gain is stored as linear gain. NIH-plug comes with useful conversion functions
             // to treat these kinds of parameters as if we were dealing with decibels. Storing this
             // as decibels is easier to work with, but requires a conversion for every sample.
