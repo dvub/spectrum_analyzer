@@ -1,0 +1,48 @@
+[package]
+name = "spectrum_analyzer"
+version = "0.1.0"
+edition = "2021"
+authors = ["dvub <todo@todo.com>"]
+license = "GPL-3.0-or-later"
+homepage = "todo.com"
+description = "todo"
+
+[workspace]
+members = ["xtask"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# Remove the `assert_process_allocs` feature to allow allocations on the audio
+# thread in debug builds.
+nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", features = [
+    "assert_process_allocs",
+] }
+# Uncomment the below line to disable the on-by-default VST3 feature to remove
+# the GPL compatibility requirement
+# nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", default-features = false, features = ["assert_process_allocs"] }
+fundsp = { git = "https://github.com/dvub/fundsp.git" }
+nih_plug_webview = { git = "https://github.com/toiglak/nih-plug-webview" }
+mime_guess = "2.0.5"
+include_dir = "0.7.4"
+serde = "1.0.219"
+serde_json = "1.0.140"
+ts-rs = "11.0.1"
+# error handling
+anyhow = "1.0.98"
+
+
+[dev-dependencies]
+tempdir = "0.3.7"
+float-cmp = "0.10.0"
+
+
+[profile.release]
+lto = "thin"
+strip = "symbols"
+
+[profile.profiling]
+inherits = "release"
+debug = true
+strip = "none"
