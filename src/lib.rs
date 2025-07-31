@@ -2,6 +2,7 @@ mod dsp;
 mod editor;
 mod params;
 
+use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use fundsp::hacker32::*;
 use nih_plug::prelude::*;
 use params::SpectrumAnalyzerParams;
@@ -18,14 +19,20 @@ struct SpectrumAnalyzer {
 
     graph: BigBlockAdapter,
     buffers: Vec<Vec<f32>>,
+
+    tx: Sender<f32>,
+    rx: Receiver<f32>,
 }
 
 impl Default for SpectrumAnalyzer {
     fn default() -> Self {
+        let (tx, rx) = bounded(1024);
         Self {
             params: Arc::new(SpectrumAnalyzerParams::default()),
             graph: BigBlockAdapter::new(Box::new(sink())),
             buffers: Vec::new(),
+            tx,
+            rx,
         }
     }
 }
@@ -68,7 +75,7 @@ impl Plugin for SpectrumAnalyzer {
     ) -> bool {
         self.buffers = vec![vec![0.0; buffer_config.max_buffer_size as usize]; 2];
 
-        let graph = build_graph();
+        let graph = build_graph(self.tx.clone());
 
         // TODO: refactor these steps
         self.graph = BigBlockAdapter::new(graph);
@@ -82,7 +89,7 @@ impl Plugin for SpectrumAnalyzer {
     // TODO: do we need reset() to reset fundsp buffers?
 
     fn editor(&mut self, _: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        PluginGui::new(&self.params.state)
+        PluginGui::new(&self.params.state, self.rx.clone())
     }
 
     fn process(

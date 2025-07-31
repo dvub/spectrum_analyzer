@@ -1,3 +1,5 @@
+use crossbeam_channel::{Receiver, Sender};
+use fundsp::hacker32::*;
 use include_dir::include_dir;
 use std::{
     borrow::Cow,
@@ -16,7 +18,7 @@ use nih_plug_webview::{
 use crate::editor::PluginGui;
 
 #[allow(dead_code)]
-pub fn embedded_editor(state: &Arc<WebViewState>) -> WebViewEditor {
+pub fn embedded_editor(state: &Arc<WebViewState>, rx: Receiver<f32>) -> WebViewEditor {
     let protocol_name = "assets".to_string();
 
     let rel_config = WebViewConfig {
@@ -32,11 +34,19 @@ pub fn embedded_editor(state: &Arc<WebViewState>) -> WebViewEditor {
         )),
     };
 
-    WebViewEditor::new_with_webview(PluginGui {}, state, rel_config, move |builder| {
-        builder
-            .with_devtools(false)
-            .with_custom_protocol(protocol_name.clone(), build_protocol())
-    })
+    WebViewEditor::new_with_webview(
+        PluginGui {
+            rx,
+            ffter: Box::new(pass()),
+        },
+        state,
+        rel_config,
+        move |builder| {
+            builder
+                .with_devtools(false)
+                .with_custom_protocol(protocol_name.clone(), build_protocol())
+        },
+    )
 }
 
 // TODO: type refactoring is probably pointless
