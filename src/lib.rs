@@ -22,6 +22,8 @@ struct SpectrumAnalyzer {
 
     tx: Sender<f32>,
     rx: Receiver<f32>,
+
+    sample_rate: f32,
 }
 
 impl Default for SpectrumAnalyzer {
@@ -33,6 +35,7 @@ impl Default for SpectrumAnalyzer {
             buffers: Vec::new(),
             tx,
             rx,
+            sample_rate: 1.0,
         }
     }
 }
@@ -74,6 +77,7 @@ impl Plugin for SpectrumAnalyzer {
         _context: &mut impl InitContext<Self>,
     ) -> bool {
         self.buffers = vec![vec![0.0; buffer_config.max_buffer_size as usize]; 2];
+        self.sample_rate = buffer_config.sample_rate;
 
         let graph = build_graph(self.tx.clone());
 
@@ -92,7 +96,7 @@ impl Plugin for SpectrumAnalyzer {
     }
 
     fn editor(&mut self, _: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        PluginGui::new(&self.params.state, self.rx.clone())
+        PluginGui::new(&self.params.state, self.rx.clone(), self.sample_rate)
     }
 
     fn process(

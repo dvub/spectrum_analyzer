@@ -1,5 +1,6 @@
 mod embedded;
 mod ipc;
+mod monitor;
 
 use std::{
     path::PathBuf,
@@ -8,7 +9,10 @@ use std::{
 
 #[cfg(not(debug_assertions))]
 use crate::editor::embedded::embedded_editor;
-use crate::editor::ipc::{DrawData, Message};
+use crate::editor::{
+    ipc::{DrawData, Message},
+    monitor::{Meter, Monitor},
+};
 
 use crossbeam_channel::Receiver;
 use fundsp::hacker::AudioUnit;
@@ -20,18 +24,25 @@ use serde_json::json;
 
 pub struct PluginGui {
     sample_rx: Receiver<f32>,
+
+    // spectrum stuff
     graph: Box<dyn AudioUnit>,
     spectrum: Arc<Mutex<Vec<f32>>>,
+    spectrum_monitors: Vec<Monitor>,
 }
 
 impl PluginGui {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(state: &Arc<WebViewState>, rx: Receiver<f32>) -> Option<Box<dyn Editor>> {
+    pub fn new(
+        state: &Arc<WebViewState>,
+        rx: Receiver<f32>,
+        sample_rate: f32,
+    ) -> Option<Box<dyn Editor>> {
         #[cfg(debug_assertions)]
-        let editor = dev_editor(state, rx);
+        let editor = dev_editor(state, rx, sample_rate);
 
         #[cfg(not(debug_assertions))]
-        let editor = embedded_editor(state, rx);
+        let editor = embedded_editor(state, rx, sample_rate);
 
         Some(Box::new(editor))
     }
@@ -42,7 +53,11 @@ impl PluginGui {
         }
     }
 }
-fn dev_editor(state: &Arc<WebViewState>, rx: Receiver<f32>) -> WebViewEditor {
+
+const WINDOW_LENGTH: usize = 1024;
+const MONITOR_LEN: usize = (WINDOW_LENGTH / 2) + 1;
+
+fn dev_editor(state: &Arc<WebViewState>, rx: Receiver<f32>, sample_rate: f32) -> WebViewEditor {
     let config = WebViewConfig {
         title: "Convolution".to_string(),
         source: WebViewSource::URL(String::from("http://localhost:3000")),
@@ -52,11 +67,22 @@ fn dev_editor(state: &Arc<WebViewState>, rx: Receiver<f32>) -> WebViewEditor {
         )),
     };
     let spectrum = Arc::new(Mutex::new(Vec::new()));
+    let mut graph = build_fft_graph(spectrum.clone());
+
+    // TODO: fix the hardcoded sample_rate
+    let mut spectrum_monitors = vec![Monitor::new(Meter::Peak, 1.0, 60.0); MONITOR_LEN];
+    for mon in &mut spectrum_monitors {
+        mon.set_sample_rate(sample_rate);
+    }
+
+    graph.set_sample_rate(sample_rate as f64);
+
     WebViewEditor::new_with_webview(
         PluginGui {
             sample_rx: rx,
-            graph: build_fft_graph(spectrum.clone()),
+            graph,
             spectrum,
+            spectrum_monitors,
         },
         state,
         config,
@@ -73,9 +99,20 @@ impl EditorHandler for PluginGui {
         let spectrum = &*self.spectrum.lock().unwrap();
         // do any expensive processing such as interpolation
         // we want to give our GUI as little work as possible
-        todo!();
+        let processed: Vec<_> = self
+            .spectrum_monitors
+            .iter_mut()
+            .enumerate()
+            .map(|(i, monitor)| {
+                monitor.tick(spectrum[i]);
+                monitor.level()
+            })
+            .collect();
+
+        println!("{:?}", processed);
+
         // send to GUI
-        let message = Message::DrawData(DrawData::Spectrum(spectrum.clone()));
+        let message = Message::DrawData(DrawData::Spectrum(processed));
         cx.send_message(json!(message).to_string());
     }
 
@@ -83,8 +120,6 @@ impl EditorHandler for PluginGui {
 
     fn on_params_changed(&mut self, _: &mut nih_plug_webview::Context) {}
 }
-
-const WINDOW_LENGTH: usize = 1024;
 
 fn build_fft_graph(spectrum: Arc<Mutex<Vec<f32>>>) -> Box<dyn AudioUnit> {
     let fft_processor = resynth::<U1, U0, _>(WINDOW_LENGTH, move |fft| {
@@ -99,5 +134,6 @@ fn build_fft_graph(spectrum: Arc<Mutex<Vec<f32>>>) -> Box<dyn AudioUnit> {
         }
         *spectrum.lock().unwrap() = temp_spectrum;
     });
+
     Box::new(fft_processor)
 }

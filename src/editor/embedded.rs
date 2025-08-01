@@ -14,10 +14,14 @@ use nih_plug_webview::{
     WebViewConfig, WebViewEditor, WebViewSource, WebViewState,
 };
 
-use crate::editor::{build_fft_graph, PluginGui};
+use crate::editor::{build_fft_graph, monitor::Meter, PluginGui};
 
 #[allow(dead_code)]
-pub fn embedded_editor(state: &Arc<WebViewState>, rx: Receiver<f32>) -> WebViewEditor {
+pub fn embedded_editor(
+    state: &Arc<WebViewState>,
+    rx: Receiver<f32>,
+    sample_rate: f32,
+) -> WebViewEditor {
     let protocol_name = "assets".to_string();
 
     let rel_config = WebViewConfig {
@@ -33,13 +37,23 @@ pub fn embedded_editor(state: &Arc<WebViewState>, rx: Receiver<f32>) -> WebViewE
         )),
     };
 
-    let x = Arc::new(Mutex::new(Vec::new()));
+    let spectrum = Arc::new(Mutex::new(Vec::new()));
+    let mut graph = build_fft_graph(spectrum.clone());
+    graph.set_sample_rate(sample_rate as f64);
 
     WebViewEditor::new_with_webview(
         PluginGui {
             sample_rx: rx,
-            graph: build_fft_graph(x.clone()),
-            spectrum: x,
+            graph,
+            spectrum,
+            spectrum_monitors: vec![
+                crate::editor::monitor::Monitor::new(
+                    Meter::RMS,
+                    0.1,
+                    sample_rate
+                );
+                513
+            ],
         },
         state,
         rel_config,
