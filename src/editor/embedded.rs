@@ -14,7 +14,7 @@ use nih_plug_webview::{
     WebViewConfig, WebViewEditor, WebViewSource, WebViewState,
 };
 
-use crate::editor::{fft_graph, PluginGui};
+use crate::editor::{build_fft_graph, PluginGui};
 
 #[allow(dead_code)]
 pub fn embedded_editor(state: &Arc<WebViewState>, rx: Receiver<f32>) -> WebViewEditor {
@@ -37,9 +37,9 @@ pub fn embedded_editor(state: &Arc<WebViewState>, rx: Receiver<f32>) -> WebViewE
 
     WebViewEditor::new_with_webview(
         PluginGui {
-            rx,
-            ffter: fft_graph(x.clone()),
-            x,
+            sample_rx: rx,
+            graph: build_fft_graph(x.clone()),
+            spectrum: x,
         },
         state,
         rel_config,

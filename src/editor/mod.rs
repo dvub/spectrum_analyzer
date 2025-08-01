@@ -19,9 +19,9 @@ use fundsp::hacker32::*;
 use serde_json::json;
 
 pub struct PluginGui {
-    rx: Receiver<f32>,
-    ffter: Box<dyn AudioUnit>,
-    x: Arc<Mutex<Vec<f32>>>,
+    sample_rx: Receiver<f32>,
+    graph: Box<dyn AudioUnit>,
+    spectrum: Arc<Mutex<Vec<f32>>>,
 }
 
 impl PluginGui {
@@ -35,6 +35,12 @@ impl PluginGui {
 
         Some(Box::new(editor))
     }
+
+    fn tick(&mut self) {
+        for sample in self.sample_rx.try_iter() {
+            self.graph.tick(&[sample], &mut []);
+        }
+    }
 }
 fn dev_editor(state: &Arc<WebViewState>, rx: Receiver<f32>) -> WebViewEditor {
     let config = WebViewConfig {
@@ -45,12 +51,12 @@ fn dev_editor(state: &Arc<WebViewState>, rx: Receiver<f32>) -> WebViewEditor {
             "/target/webview-workdir"
         )),
     };
-    let x = Arc::new(Mutex::new(Vec::new()));
+    let spectrum = Arc::new(Mutex::new(Vec::new()));
     WebViewEditor::new_with_webview(
         PluginGui {
-            rx,
-            ffter: fft_graph(x.clone()),
-            x,
+            sample_rx: rx,
+            graph: build_fft_graph(spectrum.clone()),
+            spectrum,
         },
         state,
         config,
@@ -59,13 +65,17 @@ fn dev_editor(state: &Arc<WebViewState>, rx: Receiver<f32>) -> WebViewEditor {
 }
 
 impl EditorHandler for PluginGui {
+    // SUPER IMPORTANT
     fn on_frame(&mut self, cx: &mut nih_plug_webview::Context) {
-        for s in self.rx.try_iter() {
-            self.ffter.tick(&[s], &mut []);
-        }
-
-        let x = &*self.x.lock().unwrap();
-        let message = Message::DrawData(DrawData::Spectrum(x.clone()));
+        // process (take FFT) of everything that's come from the DSP thread since the last frame
+        self.tick();
+        // grab spectrum
+        let spectrum = &*self.spectrum.lock().unwrap();
+        // do any expensive processing such as interpolation
+        // we want to give our GUI as little work as possible
+        todo!();
+        // send to GUI
+        let message = Message::DrawData(DrawData::Spectrum(spectrum.clone()));
         cx.send_message(json!(message).to_string());
     }
 
@@ -74,18 +84,20 @@ impl EditorHandler for PluginGui {
     fn on_params_changed(&mut self, _: &mut nih_plug_webview::Context) {}
 }
 
-fn fft_graph(output: Arc<Mutex<Vec<f32>>>) -> Box<dyn AudioUnit> {
-    let fft_processor = resynth::<U1, U0, _>(1024, move |fft| {
-        let mut y = vec![0.0; fft.bins()];
+const WINDOW_LENGTH: usize = 1024;
 
+fn build_fft_graph(spectrum: Arc<Mutex<Vec<f32>>>) -> Box<dyn AudioUnit> {
+    let fft_processor = resynth::<U1, U0, _>(WINDOW_LENGTH, move |fft| {
+        let mut temp_spectrum = vec![0.0; fft.bins()];
+
+        #[allow(clippy::needless_range_loop)]
         for i in 0..fft.bins() {
             let current_bin = fft.at(0, i);
-            y[i] = current_bin.norm();
+            let normalization = WINDOW_LENGTH as f32;
+
+            temp_spectrum[i] = current_bin.norm() / normalization;
         }
-        *output.lock().unwrap() = y;
+        *spectrum.lock().unwrap() = temp_spectrum;
     });
-
-    let graph = pass() >> fft_processor;
-
-    Box::new(graph)
+    Box::new(fft_processor)
 }
