@@ -1,10 +1,9 @@
-use crossbeam_channel::{Receiver, Sender};
-use fundsp::hacker32::*;
+use crossbeam_channel::Receiver;
 use include_dir::include_dir;
 use std::{
     borrow::Cow,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 use nih_plug_webview::{
@@ -15,7 +14,7 @@ use nih_plug_webview::{
     WebViewConfig, WebViewEditor, WebViewSource, WebViewState,
 };
 
-use crate::editor::PluginGui;
+use crate::editor::{fft_graph, PluginGui};
 
 #[allow(dead_code)]
 pub fn embedded_editor(state: &Arc<WebViewState>, rx: Receiver<f32>) -> WebViewEditor {
@@ -34,10 +33,13 @@ pub fn embedded_editor(state: &Arc<WebViewState>, rx: Receiver<f32>) -> WebViewE
         )),
     };
 
+    let x = Arc::new(Mutex::new(Vec::new()));
+
     WebViewEditor::new_with_webview(
         PluginGui {
             rx,
-            ffter: Box::new(pass()),
+            ffter: fft_graph(x.clone()),
+            x,
         },
         state,
         rel_config,

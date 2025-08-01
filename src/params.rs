@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use nih_plug::{params::persist, prelude::*};
+use nih_plug::prelude::*;
 use nih_plug_webview::WebViewState;
 
 #[derive(Params)]
