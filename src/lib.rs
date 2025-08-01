@@ -2,7 +2,7 @@ mod dsp;
 mod editor;
 mod params;
 
-use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
+use crossbeam_channel::{bounded, Receiver, Sender};
 use fundsp::hacker32::*;
 use nih_plug::prelude::*;
 use params::SpectrumAnalyzerParams;
@@ -86,7 +86,10 @@ impl Plugin for SpectrumAnalyzer {
         true
     }
 
-    // TODO: do we need reset() to reset fundsp buffers?
+    // not sure if this is needed..
+    fn reset(&mut self) {
+        self.graph.reset();
+    }
 
     fn editor(&mut self, _: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
         PluginGui::new(&self.params.state, self.rx.clone())
@@ -111,20 +114,29 @@ impl Plugin for SpectrumAnalyzer {
 
 impl ClapPlugin for SpectrumAnalyzer {
     const CLAP_ID: &'static str = "com.your-domain.spectrum-analyzer";
-    const CLAP_DESCRIPTION: Option<&'static str> = Some("todo");
+    const CLAP_DESCRIPTION: Option<&'static str> = Some("Spectrum Analyzer Plugin");
     const CLAP_MANUAL_URL: Option<&'static str> = Some(Self::URL);
     const CLAP_SUPPORT_URL: Option<&'static str> = None;
 
-    // TODO: change these features
-    const CLAP_FEATURES: &'static [ClapFeature] = &[ClapFeature::AudioEffect, ClapFeature::Stereo];
+    const CLAP_FEATURES: &'static [ClapFeature] = &[
+        ClapFeature::AudioEffect,
+        ClapFeature::Stereo,
+        ClapFeature::Analyzer,
+        ClapFeature::Mastering,
+        ClapFeature::Mixing,
+        ClapFeature::Utility,
+    ];
 }
 
 impl Vst3Plugin for SpectrumAnalyzer {
     const VST3_CLASS_ID: [u8; 16] = *b"Exactly16Chars!!";
 
-    // TODO: change these categories
-    const VST3_SUBCATEGORIES: &'static [Vst3SubCategory] =
-        &[Vst3SubCategory::Fx, Vst3SubCategory::Dynamics];
+    const VST3_SUBCATEGORIES: &'static [Vst3SubCategory] = &[
+        Vst3SubCategory::Tools,
+        Vst3SubCategory::Stereo,
+        Vst3SubCategory::Fx,
+        Vst3SubCategory::Mastering,
+    ];
 }
 
 nih_export_clap!(SpectrumAnalyzer);

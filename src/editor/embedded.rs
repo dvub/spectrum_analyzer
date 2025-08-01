@@ -51,7 +51,7 @@ pub fn embedded_editor(state: &Arc<WebViewState>, rx: Receiver<f32>) -> WebViewE
     )
 }
 
-// TODO: type refactoring is probably pointless
+// type refactoring is probably pointless?
 type Res = Response<Cow<'static, [u8]>>;
 type Protocol = dyn Fn(WebViewId, Request<Vec<u8>>) -> Res + 'static;
 
@@ -63,7 +63,7 @@ fn build_protocol() -> Box<Protocol> {
         } else {
             &path[1..]
         };
-        // TODO: should we hardcode this or something?
+        // should we hardcode this or something?
         let dir = include_dir!("$CARGO_MANIFEST_DIR/gui/assets/");
 
         let mime_type =

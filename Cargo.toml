@@ -2,10 +2,10 @@
 name = "spectrum_analyzer"
 version = "0.1.0"
 edition = "2021"
-authors = ["dvub <todo@todo.com>"]
+authors = ["dvub <dvubdevs [at] gmail [dot] com>"]
 license = "GPL-3.0-or-later"
 homepage = "todo.com"
-description = "todo"
+description = "A spectrum analyzer plugin, written in Rust."
 
 [workspace]
 members = ["xtask"]
