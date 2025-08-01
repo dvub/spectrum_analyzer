@@ -69,11 +69,8 @@ fn dev_editor(state: &Arc<WebViewState>, rx: Receiver<f32>, sample_rate: f32) ->
     let spectrum = Arc::new(Mutex::new(Vec::new()));
     let mut graph = build_fft_graph(spectrum.clone());
 
-    // TODO: fix the hardcoded sample_rate
-    let mut spectrum_monitors = vec![Monitor::new(Meter::Peak, 1.0, 60.0); MONITOR_LEN];
-    for mon in &mut spectrum_monitors {
-        mon.set_sample_rate(sample_rate);
-    }
+    // TODO: fix the hardcoded rate
+    let spectrum_monitors = vec![Monitor::new(Meter::Peak, 1.5, 60.0); MONITOR_LEN];
 
     graph.set_sample_rate(sample_rate as f64);
 

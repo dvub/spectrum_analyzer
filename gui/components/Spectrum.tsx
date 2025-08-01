@@ -27,16 +27,16 @@ export function Spectrum() {
 		ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
 		ctx.strokeStyle = 'black';
-		ctx.lineWidth = 3;
+		ctx.lineWidth = 1;
 		const spectruma = spectrum.current;
 
-		const max = Math.max(...spectruma);
+
 
 		ctx.beginPath();
 		for (let i = 0; i < spectruma.length; i++) {
 			const current = spectruma[i];
 			const x = (i / spectruma.length) * ctx.canvas.width;
-			const y = (current / max) * ctx.canvas.height;
+			const y = current * 10000
 
 			ctx.lineTo(x, y);
 		}
