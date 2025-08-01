@@ -1,10 +1,5 @@
-'use client';
-import { usePluginListener } from '@/hooks/usePluginListener';
+import { Spectrum } from '@/components/Spectrum';
 
 export default function Home() {
-	usePluginListener((message) => {
-		console.log(message);
-	});
-
-	return <div>hi</div>;
+	return <Spectrum />;
 }
