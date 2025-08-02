@@ -27,8 +27,8 @@ pub struct PluginGui {
 
     // spectrum stuff
     graph: Box<dyn AudioUnit>,
-    spectrum: Arc<Mutex<Vec<f32>>>,
-    spectrum_monitors: Vec<Monitor>,
+
+    spectrum_monitors: Arc<Mutex<Vec<Monitor>>>,
 }
 
 impl PluginGui {
@@ -66,11 +66,13 @@ fn dev_editor(state: &Arc<WebViewState>, rx: Receiver<f32>, sample_rate: f32) ->
             "/target/webview-workdir"
         )),
     };
-    let spectrum = Arc::new(Mutex::new(Vec::new()));
-    let mut graph = build_fft_graph(spectrum.clone());
 
-    // TODO: fix the hardcoded rate
-    let spectrum_monitors = vec![Monitor::new(Meter::Peak, 1.5, 60.0); MONITOR_LEN];
+    let spectrum_monitors = Arc::new(Mutex::new(vec![
+        Monitor::new(Meter::Peak, 1.5, 60.0);
+        MONITOR_LEN
+    ]));
+
+    let mut graph = build_fft_graph(spectrum_monitors.clone());
 
     graph.set_sample_rate(sample_rate as f64);
 
@@ -78,7 +80,6 @@ fn dev_editor(state: &Arc<WebViewState>, rx: Receiver<f32>, sample_rate: f32) ->
         PluginGui {
             sample_rx: rx,
             graph,
-            spectrum,
             spectrum_monitors,
         },
         state,
@@ -92,21 +93,15 @@ impl EditorHandler for PluginGui {
     fn on_frame(&mut self, cx: &mut nih_plug_webview::Context) {
         // process (take FFT) of everything that's come from the DSP thread since the last frame
         self.tick();
-        // grab spectrum
-        let spectrum = &*self.spectrum.lock().unwrap();
-        // do any expensive processing such as interpolation
-        // we want to give our GUI as little work as possible
+
+        // TODO: jesus christ what is this
         let processed: Vec<_> = self
             .spectrum_monitors
-            .iter_mut()
-            .enumerate()
-            .map(|(i, monitor)| {
-                monitor.tick(spectrum[i]);
-                monitor.level()
-            })
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|x| x.level())
             .collect();
-
-        println!("{:?}", processed);
 
         // send to GUI
         let message = Message::DrawData(DrawData::Spectrum(processed));
@@ -118,18 +113,18 @@ impl EditorHandler for PluginGui {
     fn on_params_changed(&mut self, _: &mut nih_plug_webview::Context) {}
 }
 
-fn build_fft_graph(spectrum: Arc<Mutex<Vec<f32>>>) -> Box<dyn AudioUnit> {
+fn build_fft_graph(spectrum_monitors: Arc<Mutex<Vec<Monitor>>>) -> Box<dyn AudioUnit> {
     let fft_processor = resynth::<U1, U0, _>(WINDOW_LENGTH, move |fft| {
-        let mut temp_spectrum = vec![0.0; fft.bins()];
+        let mut monitors = spectrum_monitors.lock().unwrap();
 
         #[allow(clippy::needless_range_loop)]
         for i in 0..fft.bins() {
             let current_bin = fft.at(0, i);
             let normalization = WINDOW_LENGTH as f32;
 
-            temp_spectrum[i] = current_bin.norm() / normalization;
+            let value = current_bin.norm() / normalization;
+            monitors[i].tick(value);
         }
-        *spectrum.lock().unwrap() = temp_spectrum;
     });
 
     Box::new(fft_processor)

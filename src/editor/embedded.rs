@@ -1,3 +1,4 @@
+/*
 use crossbeam_channel::Receiver;
 use include_dir::include_dir;
 use std::{
@@ -15,6 +16,7 @@ use nih_plug_webview::{
 };
 
 use crate::editor::{build_fft_graph, monitor::Meter, PluginGui};
+
 
 #[allow(dead_code)]
 pub fn embedded_editor(
@@ -95,3 +97,4 @@ fn build_protocol() -> Box<Protocol> {
         }
     })
 }
+*/
