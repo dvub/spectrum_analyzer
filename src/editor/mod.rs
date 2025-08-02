@@ -5,6 +5,7 @@ mod monitor;
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
+    time::Instant,
 };
 
 #[cfg(not(debug_assertions))]
@@ -29,6 +30,9 @@ pub struct PluginGui {
     graph: Box<dyn AudioUnit>,
 
     spectrum_monitors: Arc<Mutex<Vec<Monitor>>>,
+
+    last_call: Instant,
+    last_fps: f32,
 }
 
 impl PluginGui {
@@ -52,10 +56,38 @@ impl PluginGui {
             self.graph.tick(&[sample], &mut []);
         }
     }
+
+    // this actually sucks
+    fn update_fps(&mut self) {
+        let last_call = self.last_call;
+        let current = Instant::now();
+
+        let diff = current - last_call;
+        let diff_ms = diff.as_millis();
+
+        self.last_call = current;
+
+        if diff_ms == 0 {
+            return;
+        }
+        // TODO: is there a precision issue?
+        let fps = (1000 / diff_ms) as f32;
+
+        if fps != self.last_fps {
+            for monitor in &mut *self.spectrum_monitors.lock().unwrap() {
+                monitor.set_frame_rate(fps);
+            }
+        }
+        self.last_fps = fps;
+    }
 }
 
 const WINDOW_LENGTH: usize = 1024;
-const MONITOR_LEN: usize = (WINDOW_LENGTH / 2) + 1;
+const NUM_MONITORS: usize = (WINDOW_LENGTH / 2) + 1;
+
+// in seconds!
+const DEFAULT_PEAK_DECAY: f32 = 1.5;
+const DEFAULT_MODE: Meter = Meter::Peak(DEFAULT_PEAK_DECAY);
 
 fn dev_editor(state: &Arc<WebViewState>, rx: Receiver<f32>, sample_rate: f32) -> WebViewEditor {
     let config = WebViewConfig {
@@ -67,20 +99,20 @@ fn dev_editor(state: &Arc<WebViewState>, rx: Receiver<f32>, sample_rate: f32) ->
         )),
     };
 
-    let spectrum_monitors = Arc::new(Mutex::new(vec![
-        Monitor::new(Meter::Peak, 1.5, 60.0);
-        MONITOR_LEN
-    ]));
+    let spectrum_monitors = Arc::new(Mutex::new(vec![Monitor::new(DEFAULT_MODE); NUM_MONITORS]));
 
     let mut graph = build_fft_graph(spectrum_monitors.clone());
-
+    // TODO: does this actually... matter?
     graph.set_sample_rate(sample_rate as f64);
 
     WebViewEditor::new_with_webview(
+        // TODO: refactor
         PluginGui {
             sample_rx: rx,
             graph,
             spectrum_monitors,
+            last_call: Instant::now(),
+            last_fps: 0.0,
         },
         state,
         config,
@@ -89,8 +121,8 @@ fn dev_editor(state: &Arc<WebViewState>, rx: Receiver<f32>, sample_rate: f32) ->
 }
 
 impl EditorHandler for PluginGui {
-    // SUPER IMPORTANT
     fn on_frame(&mut self, cx: &mut nih_plug_webview::Context) {
+        self.update_fps();
         // process (take FFT) of everything that's come from the DSP thread since the last frame
         self.tick();
 
