@@ -149,6 +149,9 @@ fn build_fft_graph(spectrum_monitors: Arc<Mutex<Vec<Monitor>>>) -> Box<dyn Audio
     let fft_processor = resynth::<U1, U0, _>(WINDOW_LENGTH, move |fft| {
         let mut monitors = spectrum_monitors.lock().unwrap();
 
+        // TODO: !!! go back to using intermediate vec here.
+        // THEN, in on_frame(), only tick each monitor once, which allows those to have a somewhat consistent framerate.
+
         #[allow(clippy::needless_range_loop)]
         for i in 0..fft.bins() {
             let current_bin = fft.at(0, i);
