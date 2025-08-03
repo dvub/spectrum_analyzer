@@ -6,11 +6,9 @@ import { usePluginListener } from '@/hooks/usePluginListener';
 import { useCallback, useRef } from 'react';
 import { Canvas } from './Canvas';
 
+const FPS = 30;
 export function Spectrum() {
-	console.log('This component rerendered');
-
 	const spectrum = useRef<number[]>([]);
-
 	const listener = useCallback((m: Message) => {
 		if (m.type !== 'drawData') {
 			return;
@@ -24,19 +22,27 @@ export function Spectrum() {
 	usePluginListener(listener);
 
 	function draw(ctx: CanvasRenderingContext2D) {
-		ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+		const m: Message = {
+			type: 'drawRequest',
+			data: {
+				type: 'spectrum',
+				data: FPS,
+			},
+		};
+		window.plugin.send(JSON.stringify(m));
 
+		ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 		ctx.strokeStyle = 'black';
 		ctx.lineWidth = 1;
-		const spectruma = spectrum.current;
-
-
+		const spectrumArray = spectrum.current;
 
 		ctx.beginPath();
-		for (let i = 0; i < spectruma.length; i++) {
-			const current = spectruma[i];
-			const x = (i / spectruma.length) * ctx.canvas.width;
-			const y = current * 10000
+		for (let i = 0; i < spectrumArray.length; i++) {
+			const current = spectrumArray[i];
+			const x =
+				(Math.log(i + 1) / Math.log(spectrumArray.length)) *
+				ctx.canvas.width;
+			const y = ctx.canvas.height - current * 1000;
 
 			ctx.lineTo(x, y);
 		}
@@ -45,7 +51,7 @@ export function Spectrum() {
 
 	return (
 		<div>
-			<Canvas draw={draw} />
+			<Canvas draw={draw} fps={FPS} />
 		</div>
 	);
 }

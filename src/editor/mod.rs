@@ -11,7 +11,7 @@ use std::{
 #[cfg(not(debug_assertions))]
 use crate::editor::embedded::embedded_editor;
 use crate::editor::{
-    ipc::{DrawData, Message},
+    ipc::{DrawData, DrawRequest, Message},
     monitor::{Meter, Monitor},
 };
 
@@ -29,10 +29,10 @@ pub struct PluginGui {
     // spectrum stuff
     graph: Box<dyn AudioUnit>,
 
-    spectrum_monitors: Arc<Mutex<Vec<Monitor>>>,
+    spectrum: Arc<Mutex<Vec<f32>>>,
+    spectrum_monitors: Vec<Monitor>,
 
-    last_call: Instant,
-    last_fps: f32,
+    fps: f32,
 }
 
 impl PluginGui {
@@ -56,29 +56,11 @@ impl PluginGui {
             self.graph.tick(&[sample], &mut []);
         }
     }
-
-    // this actually sucks
-    fn update_fps(&mut self) {
-        let last_call = self.last_call;
-        let current = Instant::now();
-
-        let diff = current - last_call;
-        let diff_ms = diff.as_millis();
-
-        self.last_call = current;
-
-        if diff_ms == 0 {
-            return;
+    fn set_frame_rate(&mut self, frame_rate: f32) {
+        for mon in self.spectrum_monitors.iter_mut() {
+            mon.set_frame_rate(frame_rate);
         }
-        // TODO: is there a precision issue?
-        let fps = (1000 / diff_ms) as f32;
-
-        if fps != self.last_fps {
-            for monitor in &mut *self.spectrum_monitors.lock().unwrap() {
-                monitor.set_frame_rate(fps);
-            }
-        }
-        self.last_fps = fps;
+        self.fps = frame_rate;
     }
 }
 
@@ -99,9 +81,11 @@ fn dev_editor(state: &Arc<WebViewState>, rx: Receiver<f32>, sample_rate: f32) ->
         )),
     };
 
-    let spectrum_monitors = Arc::new(Mutex::new(vec![Monitor::new(DEFAULT_MODE); NUM_MONITORS]));
+    let spectrum_monitors = vec![Monitor::new(DEFAULT_MODE); NUM_MONITORS];
 
-    let mut graph = build_fft_graph(spectrum_monitors.clone());
+    let spectrum = Arc::new(Mutex::new(vec![0.0; NUM_MONITORS]));
+
+    let mut graph = build_fft_graph(spectrum.clone());
     // TODO: does this actually... matter?
     graph.set_sample_rate(sample_rate as f64);
 
@@ -111,8 +95,9 @@ fn dev_editor(state: &Arc<WebViewState>, rx: Receiver<f32>, sample_rate: f32) ->
             sample_rx: rx,
             graph,
             spectrum_monitors,
-            last_call: Instant::now(),
-            last_fps: 0.0,
+
+            spectrum,
+            fps: 0.0,
         },
         state,
         config,
@@ -121,33 +106,51 @@ fn dev_editor(state: &Arc<WebViewState>, rx: Receiver<f32>, sample_rate: f32) ->
 }
 
 impl EditorHandler for PluginGui {
-    fn on_frame(&mut self, cx: &mut nih_plug_webview::Context) {
-        self.update_fps();
-        // process (take FFT) of everything that's come from the DSP thread since the last frame
-        self.tick();
+    fn on_frame(&mut self, _: &mut nih_plug_webview::Context) {}
 
-        // TODO: jesus christ what is this
-        let processed: Vec<_> = self
-            .spectrum_monitors
-            .lock()
-            .unwrap()
-            .iter()
-            .map(|x| x.level())
-            .collect();
+    fn on_message(&mut self, cx: &mut nih_plug_webview::Context, message: String) {
+        let message: Message = serde_json::from_str(&message).expect("Error reading message");
+        match message {
+            Message::Init => {}
+            Message::Resize { width, height } => {
+                // TODO: handle the bool that's returned from this?
+                cx.resize_window(width, height);
+            }
+            Message::DrawRequest(draw_request) => match draw_request {
+                DrawRequest::Spectrum(frame_rate) => {
+                    if frame_rate != self.fps {
+                        self.set_frame_rate(frame_rate);
+                    }
+                    // process (take FFT) of everything that's come from the DSP thread since the last frame
+                    self.tick();
 
-        // send to GUI
-        let message = Message::DrawData(DrawData::Spectrum(processed));
-        cx.send_message(json!(message).to_string());
+                    // TODO: refactor
+                    let spectrum = &*self.spectrum.lock().unwrap();
+                    let processed: Vec<_> = self
+                        .spectrum_monitors
+                        .iter_mut()
+                        .enumerate()
+                        .map(|(i, x)| {
+                            x.tick(spectrum[i]);
+                            x.level()
+                        })
+                        .collect();
+
+                    // send to GUI
+                    let message = Message::DrawData(DrawData::Spectrum(processed));
+                    cx.send_message(json!(message).to_string());
+                }
+            },
+            Message::DrawData(_) => todo!(),
+        }
     }
-
-    fn on_message(&mut self, _: &mut nih_plug_webview::Context, _: String) {}
 
     fn on_params_changed(&mut self, _: &mut nih_plug_webview::Context) {}
 }
 
-fn build_fft_graph(spectrum_monitors: Arc<Mutex<Vec<Monitor>>>) -> Box<dyn AudioUnit> {
+fn build_fft_graph(spectrum: Arc<Mutex<Vec<f32>>>) -> Box<dyn AudioUnit> {
     let fft_processor = resynth::<U1, U0, _>(WINDOW_LENGTH, move |fft| {
-        let mut monitors = spectrum_monitors.lock().unwrap();
+        let mut spectrum = spectrum.lock().unwrap();
 
         // TODO: !!! go back to using intermediate vec here.
         // THEN, in on_frame(), only tick each monitor once, which allows those to have a somewhat consistent framerate.
@@ -158,7 +161,7 @@ fn build_fft_graph(spectrum_monitors: Arc<Mutex<Vec<Monitor>>>) -> Box<dyn Audio
             let normalization = WINDOW_LENGTH as f32;
 
             let value = current_bin.norm() / normalization;
-            monitors[i].tick(value);
+            spectrum[i] = value;
         }
     });
 

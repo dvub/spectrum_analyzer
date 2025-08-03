@@ -3,9 +3,12 @@
 import { useEffect, useRef } from 'react';
 
 export function Canvas(props: {
+	fps: number;
 	draw: (ctx: CanvasRenderingContext2D) => void;
 }) {
-	const { draw } = props;
+	console.log('rerendered canvas');
+
+	const { draw, fps } = props;
 
 	const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -14,14 +17,31 @@ export function Canvas(props: {
 		const canvas = canvasRef.current!;
 		const ctx = canvas.getContext('2d')!;
 
-		function render() {
-			draw(ctx);
-			animationFrameId = requestAnimationFrame(render);
-		}
-		render();
+		const interval = 1000 / fps;
 
-		return () => cancelAnimationFrame(animationFrameId);
-	}, [draw]);
+		let now;
+		let then = Date.now();
+
+		let delta;
+
+		function renderWithFps() {
+			animationFrameId = requestAnimationFrame(renderWithFps);
+
+			now = Date.now();
+			delta = now - then;
+
+			if (delta > interval) {
+				then = now - (delta % interval);
+				draw(ctx);
+			}
+		}
+		renderWithFps();
+
+		return () => {
+			cancelAnimationFrame(animationFrameId);
+			console.log('END');
+		};
+	}, [draw, fps]);
 	return (
 		<div>
 			<canvas ref={canvasRef} width={600} height={600} />
