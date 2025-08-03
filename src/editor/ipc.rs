@@ -19,7 +19,7 @@ pub enum Message {
 #[serde(rename_all = "camelCase", tag = "type", content = "data")]
 #[ts(export)]
 pub enum DrawData {
-    Spectrum(Vec<f32>),
+    Spectrum(Vec<(f32, f32)>),
 }
 #[derive(Serialize, Deserialize, TS, Debug)]
 #[serde(rename_all = "camelCase", tag = "type", content = "data")]

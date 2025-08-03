@@ -1,6 +1,9 @@
+//! Provides basic, configurable smoothing for FFT bins.
+
 // code ported from FunDSP:
 // https://github.com/SamiPerttu/fundsp/blob/a4f126bcbb5c6b93c4cd65662035655913e1e830/src/dynamics.rs#L343
-// thank you very much samip for this
+
+// this is a stripped-down version of meter/monitor stuff from fundsp
 
 const DEFAULT_FPS: f32 = 30.0;
 

@@ -1,27 +1,22 @@
 mod embedded;
 mod ipc;
-mod monitor;
+
 mod spectrum_analyzer;
 
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::{path::PathBuf, sync::Arc};
 
 #[cfg(not(debug_assertions))]
 use crate::editor::embedded::embedded_editor;
 use crate::editor::{
     ipc::{DrawData, DrawRequest, Message},
-    monitor::{Meter, Monitor},
     spectrum_analyzer::SpectrumAnalyzerHelper,
 };
 
 use crossbeam_channel::Receiver;
-use fundsp::hacker::AudioUnit;
+
 use nih_plug::editor::Editor;
 use nih_plug_webview::{EditorHandler, WebViewConfig, WebViewEditor, WebViewSource, WebViewState};
 
-use fundsp::hacker32::*;
 use serde_json::json;
 
 pub struct PluginGui {
@@ -66,7 +61,7 @@ fn dev_editor(state: &Arc<WebViewState>, rx: Receiver<f32>, sample_rate: f32) ->
         // TODO: refactor
         PluginGui {
             sample_rx: rx,
-            spectrum_analyzer: SpectrumAnalyzerHelper::new(),
+            spectrum_analyzer: SpectrumAnalyzerHelper::new(sample_rate),
         },
         state,
         config,
@@ -75,7 +70,9 @@ fn dev_editor(state: &Arc<WebViewState>, rx: Receiver<f32>, sample_rate: f32) ->
 }
 
 impl EditorHandler for PluginGui {
-    fn on_frame(&mut self, _: &mut nih_plug_webview::Context) {}
+    fn on_frame(&mut self, _: &mut nih_plug_webview::Context) {
+        self.tick();
+    }
 
     fn on_message(&mut self, cx: &mut nih_plug_webview::Context, message: String) {
         let message: Message = serde_json::from_str(&message).expect("Error reading message");
@@ -85,26 +82,14 @@ impl EditorHandler for PluginGui {
                 // TODO: handle the bool that's returned from this?
                 cx.resize_window(width, height);
             }
+
             Message::DrawRequest(draw_request) => match draw_request {
                 DrawRequest::Spectrum(frame_rate) => {
-                    if frame_rate != self.fps {
-                        self.set_frame_rate(frame_rate);
+                    if frame_rate != self.spectrum_analyzer.fps {
+                        self.spectrum_analyzer.set_monitor_fps(frame_rate);
                     }
-                    // process (take FFT) of everything that's come from the DSP thread since the last frame
-                    self.tick();
 
-                    // TODO: refactor
-                    let spectrum = &*self.spectrum.lock().unwrap();
-                    let processed: Vec<_> = self
-                        .spectrum_monitors
-                        .iter_mut()
-                        .enumerate()
-                        .map(|(i, x)| {
-                            x.tick(spectrum[i]);
-                            x.level()
-                        })
-                        .collect();
-
+                    let processed = self.spectrum_analyzer.get_drawing_coordinates();
                     // send to GUI
                     let message = Message::DrawData(DrawData::Spectrum(processed));
                     cx.send_message(json!(message).to_string());
