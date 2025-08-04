@@ -11,9 +11,12 @@ use std::{
 };
 
 pub struct SpectrumAnalyzerHelper {
-    // spectrum stuff
+    // TODO: we could probably compute the FFT without fundsp
+    // (but i like fundsp)
     graph: Box<dyn AudioUnit>,
+
     sample_rx: Receiver<f32>,
+
     spectrum: Arc<Mutex<Vec<f32>>>,
     spectrum_monitors: Vec<Monitor>,
 
@@ -50,24 +53,23 @@ impl SpectrumAnalyzerHelper {
             sample_rate,
             sample_rx,
             fps: DEFAULT_FPS,
-            // TODO: make const
             frequency_range: DEFAULT_FREQ_RANGE,
             magnitude_range: DEFAULT_MAGNITUDE_RANGE,
         }
     }
-    pub fn tick(&mut self) {
+    fn tick(&mut self) {
         for sample in self.sample_rx.try_iter() {
             self.graph.tick(&[sample], &mut [])
         }
     }
-    pub fn set_monitor_fps(&mut self, frame_rate: f32) {
+    fn set_monitor_fps(&mut self, frame_rate: f32) {
         for mon in self.spectrum_monitors.iter_mut() {
             mon.set_frame_rate(frame_rate);
         }
         self.fps = frame_rate;
     }
     // TODO: refactor
-    pub fn get_drawing_coordinates(&mut self) -> Vec<(f32, f32)> {
+    fn get_drawing_coordinates(&mut self) -> Vec<(f32, f32)> {
         let sample_rate = self.sample_rate.load(Ordering::Relaxed);
 
         let spectrum = &*self.spectrum.lock().unwrap();
@@ -100,6 +102,16 @@ impl SpectrumAnalyzerHelper {
                 (freq_normalized, magnitude_normalized)
             })
             .collect()
+    }
+
+    pub fn handle_request(&mut self, frame_rate: f32) -> Vec<(f32, f32)> {
+        self.tick();
+        // TODO: is it cheaper to just always set the FPS, even if it hasn't changed?
+        // (maybe the compiler will optimize the decay calculations or something)
+        if frame_rate != self.fps {
+            self.set_monitor_fps(frame_rate);
+        }
+        self.get_drawing_coordinates()
     }
 }
 
