@@ -7,6 +7,8 @@
 
 const DEFAULT_FPS: f32 = 30.0;
 
+// TODO: rename for clarity
+
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
 pub enum Meter {

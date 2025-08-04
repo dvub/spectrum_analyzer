@@ -85,6 +85,8 @@ impl PluginGui {
         match draw_request {
             DrawRequest::Spectrum(frame_rate) => {
                 self.spectrum_analyzer.tick();
+                // TODO: is it cheaper to just always set the FPS, even if it hasn't changed?
+                // (maybe the compiler will optimize the decay calculations or something)
                 if frame_rate != self.spectrum_analyzer.fps {
                     self.spectrum_analyzer.set_monitor_fps(frame_rate);
                 }

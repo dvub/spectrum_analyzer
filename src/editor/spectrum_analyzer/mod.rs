@@ -26,6 +26,8 @@ pub struct SpectrumAnalyzerHelper {
 }
 
 const DEFAULT_FPS: f32 = 60.0;
+const DEFAULT_FREQ_RANGE: (f32, f32) = (10.0, 22_050.0);
+const DEFAULT_MAGNITUDE_RANGE: (f32, f32) = (-100.0, 6.0);
 
 const WINDOW_LENGTH: usize = 1024;
 const NUM_MONITORS: usize = (WINDOW_LENGTH / 2) + 1;
@@ -39,19 +41,18 @@ impl SpectrumAnalyzerHelper {
         let spectrum_monitors = vec![Monitor::new(DEFAULT_MODE); NUM_MONITORS];
         let spectrum = Arc::new(Mutex::new(vec![0.0; NUM_MONITORS]));
 
-        let graph = build_fft_graph(spectrum.clone());
-        // graph.set_sample_rate(sample_rate.load as f64);
-
+        let mut graph = build_fft_graph(spectrum.clone());
+        graph.set_sample_rate(sample_rate.load(Ordering::Relaxed) as f64);
         Self {
             spectrum,
             spectrum_monitors,
-            fps: DEFAULT_FPS,
             graph,
             sample_rate,
-            // TODO: make const
-            frequency_range: (10.0, 22_050.0),
-            magnitude_range: (-100.0, 6.0),
             sample_rx,
+            fps: DEFAULT_FPS,
+            // TODO: make const
+            frequency_range: DEFAULT_FREQ_RANGE,
+            magnitude_range: DEFAULT_MAGNITUDE_RANGE,
         }
     }
     pub fn tick(&mut self) {
@@ -118,8 +119,11 @@ fn build_fft_graph(spectrum: Arc<Mutex<Vec<f32>>>) -> Box<dyn AudioUnit> {
 
     Box::new(fft_processor)
 }
-
 // https://gist.github.com/ollpu/231ebbf3717afec50fb09108aea6ad2f
+// TODO: optimize this function
+// TODO: add more parameters and remove constants
+
+// TODO: !! add slope
 fn lanczos(input: &[f32], output: &mut [f32], sample_rate: f32) {
     for (i, res) in output.iter_mut().enumerate() {
         // i in [0, N[
