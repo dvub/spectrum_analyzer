@@ -1,11 +1,9 @@
 use include_dir::include_dir;
-
-use std::{borrow::Cow, path::Path};
-
 use nih_plug_webview::wry::{
     http::{Request, Response},
     WebViewId,
 };
+use std::{borrow::Cow, path::Path};
 
 // type refactoring is probably pointless?
 type Res = Response<Cow<'static, [u8]>>;

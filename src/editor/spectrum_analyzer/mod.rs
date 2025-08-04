@@ -1,15 +1,14 @@
 mod monitor;
 
+use monitor::{Meter, Monitor};
+
+use crossbeam_channel::Receiver;
+use fundsp::hacker32::*;
+use nih_plug::{prelude::AtomicF32, util::gain_to_db};
 use std::{
     f32::consts::PI,
     sync::{atomic::Ordering, Arc, Mutex},
 };
-
-use crossbeam_channel::Receiver;
-use fundsp::hacker32::*;
-
-use monitor::{Meter, Monitor};
-use nih_plug::{prelude::AtomicF32, util::gain_to_db};
 
 pub struct SpectrumAnalyzerHelper {
     // spectrum stuff

@@ -1,26 +1,18 @@
 mod embedded;
 mod ipc;
-
 mod spectrum_analyzer;
 
-use std::{path::PathBuf, sync::Arc};
-
-#[cfg(not(debug_assertions))]
-use crate::editor::embedded::build_protocol;
-use crate::editor::{
-    embedded::build_protocol,
-    ipc::{DrawData, DrawRequest, Message},
-    spectrum_analyzer::SpectrumAnalyzerHelper,
-};
+use embedded::build_protocol;
+use ipc::{DrawData, DrawRequest, Message};
+use spectrum_analyzer::SpectrumAnalyzerHelper;
 
 use crossbeam_channel::Receiver;
-
 use nih_plug::{editor::Editor, prelude::AtomicF32};
 use nih_plug_webview::{
     Context, EditorHandler, WebViewConfig, WebViewEditor, WebViewSource, WebViewState,
 };
-
 use serde_json::json;
+use std::{path::PathBuf, sync::Arc};
 
 pub struct PluginGui {
     spectrum_analyzer: SpectrumAnalyzerHelper,

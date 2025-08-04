@@ -1,7 +1,6 @@
-use std::sync::Arc;
-
 use nih_plug::prelude::*;
 use nih_plug_webview::WebViewState;
+use std::sync::Arc;
 
 #[derive(Params)]
 pub struct SpectrumAnalyzerParams {
