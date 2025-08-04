@@ -5,7 +5,7 @@ mod params;
 use crossbeam_channel::{bounded, Receiver, Sender};
 use fundsp::hacker32::*;
 use nih_plug::prelude::*;
-use params::SpectrumAnalyzerParams;
+use params::PluginParams;
 use std::sync::{atomic::Ordering, Arc};
 
 use crate::{dsp::build_graph, editor::PluginGui};
@@ -14,33 +14,32 @@ use crate::{dsp::build_graph, editor::PluginGui};
 // https://github.com/robbert-vdh/nih-plug/blob/master/plugins/examples/gain/src/lib.rs to get
 // started
 
-struct SpectrumAnalyzer {
-    params: Arc<SpectrumAnalyzerParams>,
-
+struct SpectrumAnalyzerPlugin {
+    params: Arc<PluginParams>,
     graph: BigBlockAdapter,
     buffers: Vec<Vec<f32>>,
 
-    tx: Sender<f32>,
-    rx: Receiver<f32>,
+    sample_tx: Sender<f32>,
+    sample_rx: Receiver<f32>,
 
     sample_rate: Arc<AtomicF32>,
 }
 
-impl Default for SpectrumAnalyzer {
+impl Default for SpectrumAnalyzerPlugin {
     fn default() -> Self {
         let (tx, rx) = bounded(1024);
         Self {
-            params: Arc::new(SpectrumAnalyzerParams::default()),
+            params: Arc::new(PluginParams::default()),
             graph: BigBlockAdapter::new(Box::new(sink())),
             buffers: Vec::new(),
-            tx,
-            rx,
+            sample_tx: tx,
+            sample_rx: rx,
             sample_rate: Arc::new(AtomicF32::new(0.0)),
         }
     }
 }
 
-impl Plugin for SpectrumAnalyzer {
+impl Plugin for SpectrumAnalyzerPlugin {
     const NAME: &'static str = "Spectrum Analyzer";
     const VENDOR: &'static str = "dvub";
     const URL: &'static str = env!("CARGO_PKG_HOMEPAGE");
@@ -80,9 +79,8 @@ impl Plugin for SpectrumAnalyzer {
         self.sample_rate
             .store(buffer_config.sample_rate, Ordering::Relaxed);
 
-        let graph = build_graph(self.tx.clone());
+        let graph = build_graph(self.sample_tx.clone());
 
-        // TODO: refactor these steps
         self.graph = BigBlockAdapter::new(graph);
         self.graph
             .set_sample_rate(f64::from(buffer_config.sample_rate));
@@ -99,7 +97,7 @@ impl Plugin for SpectrumAnalyzer {
     fn editor(&mut self, _: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
         PluginGui::new(
             &self.params.state,
-            self.rx.clone(),
+            self.sample_rx.clone(),
             self.sample_rate.clone(),
         )
     }
@@ -121,7 +119,7 @@ impl Plugin for SpectrumAnalyzer {
     }
 }
 
-impl ClapPlugin for SpectrumAnalyzer {
+impl ClapPlugin for SpectrumAnalyzerPlugin {
     const CLAP_ID: &'static str = "com.your-domain.spectrum-analyzer";
     const CLAP_DESCRIPTION: Option<&'static str> = Some("Spectrum Analyzer Plugin");
     const CLAP_MANUAL_URL: Option<&'static str> = Some(Self::URL);
@@ -137,7 +135,7 @@ impl ClapPlugin for SpectrumAnalyzer {
     ];
 }
 
-impl Vst3Plugin for SpectrumAnalyzer {
+impl Vst3Plugin for SpectrumAnalyzerPlugin {
     const VST3_CLASS_ID: [u8; 16] = *b"Exactly16Chars!!";
 
     const VST3_SUBCATEGORIES: &'static [Vst3SubCategory] = &[
@@ -148,5 +146,5 @@ impl Vst3Plugin for SpectrumAnalyzer {
     ];
 }
 
-nih_export_clap!(SpectrumAnalyzer);
-nih_export_vst3!(SpectrumAnalyzer);
+nih_export_clap!(SpectrumAnalyzerPlugin);
+nih_export_vst3!(SpectrumAnalyzerPlugin);
