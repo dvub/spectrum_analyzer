@@ -72,8 +72,10 @@ impl PluginGui {
         match message {
             Message::Init => {}
             Message::Resize { width, height } => {
-                // TODO: handle the bool that's returned from this?
-                cx.resize_window(width, height);
+                let resize_result = cx.resize_window(width, height);
+                if !resize_result {
+                    println!("WARNING: the window was not resized upon request");
+                }
             }
             // !!
             Message::DrawRequest(draw_request) => self.handle_draw_request(draw_request, cx),
@@ -84,14 +86,7 @@ impl PluginGui {
     fn handle_draw_request(&mut self, draw_request: DrawRequest, cx: &mut Context) {
         match draw_request {
             DrawRequest::Spectrum(frame_rate) => {
-                self.spectrum_analyzer.tick();
-                // TODO: is it cheaper to just always set the FPS, even if it hasn't changed?
-                // (maybe the compiler will optimize the decay calculations or something)
-                if frame_rate != self.spectrum_analyzer.fps {
-                    self.spectrum_analyzer.set_monitor_fps(frame_rate);
-                }
-
-                let coordinates = self.spectrum_analyzer.get_drawing_coordinates();
+                let coordinates = self.spectrum_analyzer.handle_request(frame_rate);
                 let message = Message::DrawData(DrawData::Spectrum(coordinates));
                 cx.send_message(json!(message).to_string());
             }
