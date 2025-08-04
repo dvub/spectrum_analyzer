@@ -5,6 +5,7 @@ use std::{
     sync::{atomic::Ordering, Arc, Mutex},
 };
 
+use crossbeam_channel::Receiver;
 use fundsp::hacker32::*;
 
 use monitor::{Meter, Monitor};
@@ -13,6 +14,7 @@ use nih_plug::{prelude::AtomicF32, util::gain_to_db};
 pub struct SpectrumAnalyzerHelper {
     // spectrum stuff
     graph: Box<dyn AudioUnit>,
+    sample_rx: Receiver<f32>,
     spectrum: Arc<Mutex<Vec<f32>>>,
     spectrum_monitors: Vec<Monitor>,
 
@@ -34,7 +36,7 @@ const DEFAULT_PEAK_DECAY: f32 = 0.25;
 const DEFAULT_MODE: Meter = Meter::Rms(DEFAULT_PEAK_DECAY);
 
 impl SpectrumAnalyzerHelper {
-    pub fn new(sample_rate: Arc<AtomicF32>) -> Self {
+    pub fn new(sample_rate: Arc<AtomicF32>, sample_rx: Receiver<f32>) -> Self {
         let spectrum_monitors = vec![Monitor::new(DEFAULT_MODE); NUM_MONITORS];
         let spectrum = Arc::new(Mutex::new(vec![0.0; NUM_MONITORS]));
 
@@ -47,13 +49,16 @@ impl SpectrumAnalyzerHelper {
             fps: DEFAULT_FPS,
             graph,
             sample_rate,
+            // TODO: make const
             frequency_range: (10.0, 22_050.0),
-
             magnitude_range: (-100.0, 6.0),
+            sample_rx,
         }
     }
-    pub fn tick(&mut self, input: f32) {
-        self.graph.tick(&[input], &mut [])
+    pub fn tick(&mut self) {
+        for sample in self.sample_rx.try_iter() {
+            self.graph.tick(&[sample], &mut [])
+        }
     }
     pub fn set_monitor_fps(&mut self, frame_rate: f32) {
         for mon in self.spectrum_monitors.iter_mut() {
