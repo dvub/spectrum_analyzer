@@ -14,7 +14,7 @@ use crate::editor::{
 
 use crossbeam_channel::Receiver;
 
-use nih_plug::editor::Editor;
+use nih_plug::{editor::Editor, prelude::AtomicF32};
 use nih_plug_webview::{EditorHandler, WebViewConfig, WebViewEditor, WebViewSource, WebViewState};
 
 use serde_json::json;
@@ -29,7 +29,7 @@ impl PluginGui {
     pub fn new(
         state: &Arc<WebViewState>,
         rx: Receiver<f32>,
-        sample_rate: f32,
+        sample_rate: Arc<AtomicF32>,
     ) -> Option<Box<dyn Editor>> {
         #[cfg(debug_assertions)]
         let editor = dev_editor(state, rx, sample_rate);
@@ -47,7 +47,11 @@ impl PluginGui {
     }
 }
 
-fn dev_editor(state: &Arc<WebViewState>, rx: Receiver<f32>, sample_rate: f32) -> WebViewEditor {
+fn dev_editor(
+    state: &Arc<WebViewState>,
+    rx: Receiver<f32>,
+    sample_rate: Arc<AtomicF32>,
+) -> WebViewEditor {
     let config = WebViewConfig {
         title: "Convolution".to_string(),
         source: WebViewSource::URL(String::from("http://localhost:3000")),

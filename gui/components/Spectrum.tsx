@@ -39,7 +39,7 @@ export function Spectrum() {
     ctx.beginPath();
     for (let i = 0; i < spectrumArray.length; i++) {
       const [x, y] = spectrumArray[i];
-      console.log(x);
+
       ctx.lineTo(x * ctx.canvas.width, (1.0 - y) * ctx.canvas.height);
     }
     ctx.stroke();

@@ -1,16 +1,14 @@
 mod monitor;
-mod utils;
 
 use std::{
     f32::consts::PI,
-    sync::{Arc, Mutex},
+    sync::{atomic::Ordering, Arc, Mutex},
 };
 
 use fundsp::hacker32::*;
 
 use monitor::{Meter, Monitor};
-
-use crate::editor::spectrum_analyzer::utils::ValueScaling;
+use nih_plug::{prelude::AtomicF32, util::gain_to_db};
 
 pub struct SpectrumAnalyzerHelper {
     // spectrum stuff
@@ -18,15 +16,15 @@ pub struct SpectrumAnalyzerHelper {
     spectrum: Arc<Mutex<Vec<f32>>>,
     spectrum_monitors: Vec<Monitor>,
 
-    sample_rate: f32,
+    sample_rate: Arc<AtomicF32>,
 
     pub fps: f32,
 
-    frequency_scaling: ValueScaling,
     frequency_range: (f32, f32),
-    magnitude_scaling: ValueScaling,
     magnitude_range: (f32, f32),
 }
+
+const DEFAULT_FPS: f32 = 60.0;
 
 const WINDOW_LENGTH: usize = 1024;
 const NUM_MONITORS: usize = (WINDOW_LENGTH / 2) + 1;
@@ -36,23 +34,22 @@ const DEFAULT_PEAK_DECAY: f32 = 0.25;
 const DEFAULT_MODE: Meter = Meter::Rms(DEFAULT_PEAK_DECAY);
 
 impl SpectrumAnalyzerHelper {
-    pub fn new(sample_rate: f32) -> Self {
+    pub fn new(sample_rate: Arc<AtomicF32>) -> Self {
         let spectrum_monitors = vec![Monitor::new(DEFAULT_MODE); NUM_MONITORS];
         let spectrum = Arc::new(Mutex::new(vec![0.0; NUM_MONITORS]));
 
-        let mut graph = build_fft_graph(spectrum.clone());
-        graph.set_sample_rate(sample_rate as f64);
+        let graph = build_fft_graph(spectrum.clone());
+        // graph.set_sample_rate(sample_rate.load as f64);
 
         Self {
             spectrum,
             spectrum_monitors,
-            fps: 0.0,
+            fps: DEFAULT_FPS,
             graph,
-            sample_rate: 44100.0,
+            sample_rate,
             frequency_range: (10.0, 22_050.0),
-            frequency_scaling: ValueScaling::Frequency,
+
             magnitude_range: (-100.0, 6.0),
-            magnitude_scaling: ValueScaling::Decibels,
         }
     }
     pub fn tick(&mut self, input: f32) {
@@ -64,29 +61,36 @@ impl SpectrumAnalyzerHelper {
         }
         self.fps = frame_rate;
     }
+    // TODO: refactor
     pub fn get_drawing_coordinates(&mut self) -> Vec<(f32, f32)> {
+        let sample_rate = self.sample_rate.load(Ordering::Relaxed);
+
         let spectrum = &*self.spectrum.lock().unwrap();
-        self.spectrum_monitors
+        let linear_levels: Vec<_> = self
+            .spectrum_monitors
             .iter_mut()
             .enumerate()
             .map(|(i, x)| {
                 x.tick(spectrum[i]);
-                let linear_level = x.level();
+                x.level()
+            })
+            .collect();
+        let mut output = vec![0.0; WINDOW_LENGTH];
+        lanczos(&linear_levels, &mut output, sample_rate);
 
-                let half_nyquist = self.sample_rate / 2.0;
+        let half_nyquist = sample_rate / 2.0;
 
-                let freq = (i as f32 / spectrum.len() as f32) * half_nyquist;
+        output
+            .iter()
+            .enumerate()
+            .map(|(i, magnitude)| {
+                let freq = (i as f32 / output.len() as f32) * half_nyquist;
 
-                let magnitude_normalized = self.magnitude_scaling.value_to_normalized(
-                    linear_level,
-                    self.magnitude_range.0,
-                    self.magnitude_range.1,
-                );
-                let freq_normalized = self.frequency_scaling.value_to_normalized(
-                    freq,
-                    self.frequency_range.0,
-                    self.frequency_range.1,
-                );
+                let magnitude_normalized =
+                    normalize(*magnitude, self.magnitude_range.0, self.magnitude_range.1);
+
+                let freq_normalized =
+                    normalize(freq, self.frequency_range.0, self.frequency_range.1);
 
                 (freq_normalized, magnitude_normalized)
             })
@@ -112,7 +116,7 @@ fn build_fft_graph(spectrum: Arc<Mutex<Vec<f32>>>) -> Box<dyn AudioUnit> {
 }
 
 // https://gist.github.com/ollpu/231ebbf3717afec50fb09108aea6ad2f
-fn lanczos(output: &mut [f32], sample_rate: f32) {
+fn lanczos(input: &[f32], output: &mut [f32], sample_rate: f32) {
     for (i, res) in output.iter_mut().enumerate() {
         // i in [0, N[
         // x normalized to [0, 1[
@@ -128,7 +132,7 @@ fn lanczos(output: &mut [f32], sample_rate: f32) {
         let p = (w as isize).clamp(0, (WINDOW_LENGTH / 2) as isize);
 
         // Lanczos interpolation
-        let radius = 10;
+        let radius = 5;
         // To interpolate in linear space:
         // let mut result = Complex::new(0., 0.);
         // To interpolate in dB space:
@@ -150,7 +154,7 @@ fn lanczos(output: &mut [f32], sample_rate: f32) {
             // Linear space
             // let value = self.complex_buf[iw as usize];
             // dB space
-            let value = 20. * res.log10();
+            let value = gain_to_db(input[iw as usize]);
             result += lanczos * value;
         }
         // If interpolated in linear space, convert to dB now
@@ -161,4 +165,8 @@ fn lanczos(output: &mut [f32], sample_rate: f32) {
             *res = -250.;
         }
     }
+}
+
+fn normalize(value: f32, min: f32, max: f32) -> f32 {
+    (value - min) / (max - min)
 }

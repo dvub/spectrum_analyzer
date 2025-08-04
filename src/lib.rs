@@ -6,7 +6,7 @@ use crossbeam_channel::{bounded, Receiver, Sender};
 use fundsp::hacker32::*;
 use nih_plug::prelude::*;
 use params::SpectrumAnalyzerParams;
-use std::sync::Arc;
+use std::sync::{atomic::Ordering, Arc};
 
 use crate::{dsp::build_graph, editor::PluginGui};
 
@@ -23,7 +23,7 @@ struct SpectrumAnalyzer {
     tx: Sender<f32>,
     rx: Receiver<f32>,
 
-    sample_rate: f32,
+    sample_rate: Arc<AtomicF32>,
 }
 
 impl Default for SpectrumAnalyzer {
@@ -35,7 +35,7 @@ impl Default for SpectrumAnalyzer {
             buffers: Vec::new(),
             tx,
             rx,
-            sample_rate: 1.0,
+            sample_rate: Arc::new(AtomicF32::new(0.0)),
         }
     }
 }
@@ -77,7 +77,8 @@ impl Plugin for SpectrumAnalyzer {
         _context: &mut impl InitContext<Self>,
     ) -> bool {
         self.buffers = vec![vec![0.0; buffer_config.max_buffer_size as usize]; 2];
-        self.sample_rate = buffer_config.sample_rate;
+        self.sample_rate
+            .store(buffer_config.sample_rate, Ordering::Relaxed);
 
         let graph = build_graph(self.tx.clone());
 
@@ -96,7 +97,11 @@ impl Plugin for SpectrumAnalyzer {
     }
 
     fn editor(&mut self, _: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        PluginGui::new(&self.params.state, self.rx.clone(), self.sample_rate)
+        PluginGui::new(
+            &self.params.state,
+            self.rx.clone(),
+            self.sample_rate.clone(),
+        )
     }
 
     fn process(
