@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::editor::spectrum_analyzer::ipc::SpectrumAnalyzerConfigUpdate;
+
 // NOTE: im not exactly sure why, but if we use
 // #[ts(export, rename_all = ...)]
 // instead of serde, things do not work
@@ -14,6 +16,7 @@ pub enum Message {
     Resize { width: f64, height: f64 },
     DrawData(DrawData),
     DrawRequest(DrawRequest),
+    SpectrumAnalyzerConfigUpdate(SpectrumAnalyzerConfigUpdate),
 }
 #[derive(Serialize, Deserialize, TS, Debug)]
 #[serde(rename_all = "camelCase", tag = "type", content = "data")]
@@ -25,5 +28,5 @@ pub enum DrawData {
 #[serde(rename_all = "camelCase", tag = "type", content = "data")]
 #[ts(export)]
 pub enum DrawRequest {
-    Spectrum(f32),
+    Spectrum,
 }

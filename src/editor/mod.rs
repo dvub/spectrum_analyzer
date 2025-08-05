@@ -14,6 +14,8 @@ use nih_plug_webview::{
 use serde_json::json;
 use std::{path::PathBuf, sync::Arc};
 
+use crate::editor::spectrum_analyzer::ipc::SpectrumAnalyzerConfigUpdate;
+
 pub struct PluginGui {
     spectrum_analyzer: SpectrumAnalyzerHelper,
 }
@@ -77,16 +79,33 @@ impl PluginGui {
             }
             // !!
             Message::DrawRequest(draw_request) => self.handle_draw_request(draw_request, cx),
+            Message::SpectrumAnalyzerConfigUpdate(update) => self.handle_config_update(update, cx),
+
+            // still not sure what to do here
             Message::DrawData(_) => todo!(),
         }
     }
 
     fn handle_draw_request(&mut self, draw_request: DrawRequest, cx: &mut Context) {
         match draw_request {
-            DrawRequest::Spectrum(frame_rate) => {
-                let coordinates = self.spectrum_analyzer.handle_request(frame_rate);
+            DrawRequest::Spectrum => {
+                let coordinates = self.spectrum_analyzer.handle_draw_request();
                 let message = Message::DrawData(DrawData::Spectrum(coordinates));
                 cx.send_message(json!(message).to_string());
+            }
+        }
+    }
+
+    fn handle_config_update(&mut self, update: SpectrumAnalyzerConfigUpdate, _: &mut Context) {
+        match update {
+            SpectrumAnalyzerConfigUpdate::Fps(fps) => {
+                self.spectrum_analyzer.set_monitor_fps(fps);
+            }
+            SpectrumAnalyzerConfigUpdate::MonitorMode(mode) => {
+                self.spectrum_analyzer.set_monitor_mode(mode);
+            }
+            SpectrumAnalyzerConfigUpdate::DecaySpeed(speed) => {
+                self.spectrum_analyzer.set_monitor_decay_speed(speed);
             }
         }
     }
