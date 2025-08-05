@@ -10,4 +10,11 @@ pub enum SpectrumAnalyzerConfigUpdate {
     Fps(f32),
     MonitorMode(MonitorMode),
     DecaySpeed(f32),
+    /*
+    TODO !! add these config options
+    interpolate: bool,
+    slope: f32,
+    frequency_range: (f32, f32),
+    magnitude_range: (f32, f32),
+    */
 }
