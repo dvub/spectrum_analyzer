@@ -19,9 +19,7 @@ pub struct PluginGui {
 }
 
 impl PluginGui {
-    // TODO: refactor more
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new(
+    pub fn new_editor(
         state: &Arc<WebViewState>,
         rx: Receiver<f32>,
         sample_rate: Arc<AtomicF32>,

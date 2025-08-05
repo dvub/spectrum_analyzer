@@ -95,7 +95,7 @@ impl Plugin for SpectrumAnalyzerPlugin {
     }
 
     fn editor(&mut self, _: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        PluginGui::new(
+        PluginGui::new_editor(
             &self.params.state,
             self.sample_rx.clone(),
             self.sample_rate.clone(),
