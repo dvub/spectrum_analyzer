@@ -10,7 +10,7 @@ use nih_plug::prelude::AtomicF32;
 use std::sync::{atomic::Ordering, Arc, Mutex};
 
 use crate::editor::spectrum_analyzer::{
-    config::SpectrumAnalyzerConfig,
+    config::{SpectrumAnalyzerConfig, DEFAULT_MONITOR_MODE},
     processing::{normalize, process_spectrum},
 };
 const WINDOW_LENGTH: usize = 4096;
@@ -35,7 +35,7 @@ impl SpectrumAnalyzerHelper {
     pub fn new(sample_rate: Arc<AtomicF32>, sample_rx: Receiver<f32>) -> Self {
         let config = SpectrumAnalyzerConfig::default();
 
-        let spectrum_monitors = vec![Monitor::new(config.monitor_mode); NUM_MONITORS];
+        let spectrum_monitors = vec![Monitor::new(DEFAULT_MONITOR_MODE); NUM_MONITORS];
         let spectrum = Arc::new(Mutex::new(vec![0.0; NUM_MONITORS]));
 
         let mut graph = build_fft_graph(spectrum.clone());

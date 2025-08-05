@@ -4,14 +4,13 @@ const DEFAULT_MAGNITUDE_RANGE: (f32, f32) = (-100.0, 6.0); // db
 const DEFAULT_SLOPE: f32 = 4.5; // db/oct (or at least should be)
 const DEFAULT_PEAK_DECAY: f32 = 0.25; // seconds
 const DEFAULT_INTERPOLATION: bool = true;
-const DEFAULT_MODE: MonitorMode = MonitorMode::Rms(DEFAULT_PEAK_DECAY);
+pub const DEFAULT_MONITOR_MODE: MonitorMode = MonitorMode::Rms(DEFAULT_PEAK_DECAY);
 
 pub struct SpectrumAnalyzerConfig {
     pub interpolate: bool,
     pub slope: f32,
     pub frequency_range: (f32, f32),
     pub magnitude_range: (f32, f32),
-    pub monitor_mode: MonitorMode,
 }
 
 impl Default for SpectrumAnalyzerConfig {
@@ -20,9 +19,7 @@ impl Default for SpectrumAnalyzerConfig {
             interpolate: DEFAULT_INTERPOLATION,
             frequency_range: DEFAULT_FREQ_RANGE,
             magnitude_range: DEFAULT_MAGNITUDE_RANGE,
-
             slope: DEFAULT_SLOPE,
-            monitor_mode: DEFAULT_MODE,
         }
     }
 }
