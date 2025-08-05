@@ -3,11 +3,6 @@ use ts_rs::TS;
 
 use crate::editor::spectrum_analyzer::ipc::SpectrumAnalyzerConfigUpdate;
 
-// NOTE: im not exactly sure why, but if we use
-// #[ts(export, rename_all = ...)]
-// instead of serde, things do not work
-
-// unfortunately this prevents a lot of this being clean
 #[derive(Serialize, Deserialize, TS, Debug)]
 #[serde(rename_all = "camelCase", tag = "type", content = "data")]
 #[ts(export)]
