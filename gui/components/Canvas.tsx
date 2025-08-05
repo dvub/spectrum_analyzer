@@ -5,6 +5,9 @@ import { useEffect, useRef } from 'react';
 export function Canvas(props: {
 	fps: number;
 	draw: (ctx: CanvasRenderingContext2D) => void;
+	width: number;
+	height: number;
+	className: string | undefined;
 }) {
 	console.log('rerendered canvas');
 
@@ -44,7 +47,13 @@ export function Canvas(props: {
 	}, [draw, fps]);
 	return (
 		<div>
-			<canvas ref={canvasRef} width={600} height={600} />
+			<canvas
+				ref={canvasRef}
+				// TODO: ! refactor
+				width={props.width}
+				height={props.height}
+				className={props.className}
+			/>
 		</div>
 	);
 }
