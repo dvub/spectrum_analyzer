@@ -40,7 +40,10 @@ export function Spectrum() {
     for (let i = 0; i < spectrumArray.length; i++) {
       const [x, y] = spectrumArray[i];
 
-      ctx.lineTo(x * ctx.canvas.width, (1.0 - y) * ctx.canvas.height);
+      ctx.lineTo(
+        Math.floor(x * ctx.canvas.width),
+        Math.floor((1.0 - y) * ctx.canvas.height)
+      );
     }
     ctx.stroke();
   }
