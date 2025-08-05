@@ -42,7 +42,7 @@ impl PluginGui {
         let config = WebViewConfig {
             title: "Spectrum Analyzer".to_string(),
             source,
-            // TODO: should we change this?
+            // QUESTION: should we change this?
             workdir: PathBuf::from(concat!(
                 env!("CARGO_MANIFEST_DIR"),
                 "/target/webview-workdir"
