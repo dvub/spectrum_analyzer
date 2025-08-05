@@ -4,14 +4,17 @@ use monitor::{Meter, Monitor};
 
 use crossbeam_channel::Receiver;
 use fundsp::hacker32::*;
-use nih_plug::{prelude::AtomicF32, util::gain_to_db};
+use nih_plug::{
+    prelude::AtomicF32,
+    util::{db_to_gain, gain_to_db, gain_to_db_fast},
+};
 use std::{
     f32::consts::PI,
     sync::{atomic::Ordering, Arc, Mutex},
 };
 
 pub struct SpectrumAnalyzerHelper {
-    // TODO: we could probably compute the FFT without fundsp
+    // NOTE: we could probably compute the FFT without fundsp
     // (but i like fundsp)
     graph: Box<dyn AudioUnit>,
 
@@ -29,10 +32,10 @@ pub struct SpectrumAnalyzerHelper {
 }
 
 const DEFAULT_FPS: f32 = 60.0;
-const DEFAULT_FREQ_RANGE: (f32, f32) = (10.0, 22_050.0);
-const DEFAULT_MAGNITUDE_RANGE: (f32, f32) = (-100.0, 6.0);
+const DEFAULT_FREQ_RANGE: (f32, f32) = (10.0, 20_000.0);
+const DEFAULT_MAGNITUDE_RANGE: (f32, f32) = (-78.0, 6.0);
 
-const WINDOW_LENGTH: usize = 1024;
+const WINDOW_LENGTH: usize = 4096;
 const NUM_MONITORS: usize = (WINDOW_LENGTH / 2) + 1;
 
 // in seconds!
@@ -83,7 +86,13 @@ impl SpectrumAnalyzerHelper {
             })
             .collect();
         let mut output = vec![0.0; WINDOW_LENGTH];
-        lanczos(&linear_levels, &mut output, sample_rate);
+        lanczos(
+            &linear_levels,
+            &mut output,
+            sample_rate,
+            self.frequency_range.0,
+            self.frequency_range.1,
+        );
 
         let half_nyquist = sample_rate / 2.0;
 
@@ -106,7 +115,7 @@ impl SpectrumAnalyzerHelper {
 
     pub fn handle_request(&mut self, frame_rate: f32) -> Vec<(f32, f32)> {
         self.tick();
-        // TODO: is it cheaper to just always set the FPS, even if it hasn't changed?
+        // QUESTION: is it cheaper to just always set the FPS, even if it hasn't changed?
         // (maybe the compiler will optimize the decay calculations or something)
         if frame_rate != self.fps {
             self.set_monitor_fps(frame_rate);
@@ -133,30 +142,36 @@ fn build_fft_graph(spectrum: Arc<Mutex<Vec<f32>>>) -> Box<dyn AudioUnit> {
 }
 // https://gist.github.com/ollpu/231ebbf3717afec50fb09108aea6ad2f
 // TODO: optimize this function
-// TODO: add more parameters and remove constants
+// TODO: ! add more parameters and remove constants
+fn lanczos(input: &[f32], output: &mut [f32], sample_rate: f32, min_freq: f32, max_freq: f32) {
+    let radius = 10;
+    let slope = 4.5;
 
-// TODO: !! add slope
-fn lanczos(input: &[f32], output: &mut [f32], sample_rate: f32) {
     for (i, res) in output.iter_mut().enumerate() {
         // i in [0, N[
         // x normalized to [0, 1[
         let x = i as f32 / WINDOW_LENGTH as f32;
-        // We want to map x to frequency in range [40, 20k[, log scale
+        // We want to map x to frequency in range [min, max[, log scale
         // Parameters k, b. f = k*b^x
-        // Know: k*b^0 = 40, k*b^1 = 20k
-        // Therefore k = 40, b = 500
-        let f = 40. * 500f32.powf(x);
-        // w in [40, 20k[ / SR * N
+        let k = min_freq;
+        let b = max_freq / min_freq;
+        let f = k * b.powf(x);
+
         let w = f / sample_rate * WINDOW_LENGTH as f32;
         // Closest FFT bin
         let p = (w as isize).clamp(0, (WINDOW_LENGTH / 2) as isize);
 
+        // slope implementation
+        let slope_factor_linear = calculate_slope_factor(x, slope, sample_rate);
+
         // Lanczos interpolation
-        let radius = 5;
+
         // To interpolate in linear space:
         // let mut result = Complex::new(0., 0.);
+
         // To interpolate in dB space:
         let mut result = 0.;
+
         for iw in p - radius..=p + radius + 1 {
             if iw < 0 || iw > (WINDOW_LENGTH / 2) as isize {
                 continue;
@@ -173,18 +188,28 @@ fn lanczos(input: &[f32], output: &mut [f32], sample_rate: f32) {
             };
             // Linear space
             // let value = self.complex_buf[iw as usize];
+
             // dB space
-            let value = gain_to_db(input[iw as usize]);
-            result += lanczos * value;
+            let current_bin_linear = input[iw as usize];
+            let sloped_bin_linear = current_bin_linear * slope_factor_linear;
+            let sloped_bin_db = gain_to_db_fast(sloped_bin_linear);
+
+            result += lanczos * sloped_bin_db;
         }
         // If interpolated in linear space, convert to dB now
         // *res = 20. * result.norm().log10();
         // Otherwise use result directly
         *res = result;
-        if !(*res).is_finite() {
-            *res = -250.;
-        }
     }
+}
+
+fn calculate_slope_factor(normalized_frequency: f32, slope: f32, sample_rate: f32) -> f32 {
+    let half_nyquist = sample_rate / 2.0;
+
+    let magnitude_slope_divisor = half_nyquist.log2().powf(slope) / slope;
+
+    let freq = normalized_frequency * half_nyquist;
+    (freq + 1.).log2().powf(slope) / magnitude_slope_divisor
 }
 
 fn normalize(value: f32, min: f32, max: f32) -> f32 {
