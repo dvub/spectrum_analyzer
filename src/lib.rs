@@ -10,10 +10,7 @@ use std::sync::{atomic::Ordering, Arc};
 
 use crate::{dsp::build_graph, editor::PluginGui};
 
-// This is a shortened version of the gain example with most comments removed, check out
-// https://github.com/robbert-vdh/nih-plug/blob/master/plugins/examples/gain/src/lib.rs to get
-// started
-
+// TODO: need to persist spectrum analyzer configuration
 struct SpectrumAnalyzerPlugin {
     params: Arc<PluginParams>,
     graph: BigBlockAdapter,
