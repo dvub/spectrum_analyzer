@@ -8,8 +8,8 @@ import { Canvas } from './Canvas';
 
 export function Spectrum(props: {
 	fps: number;
-	width: number;
-	height: number;
+	width?: number;
+	height?: number;
 	fill: boolean;
 	antiAliasing: boolean;
 	style: string | CanvasGradient | CanvasPattern;
@@ -85,14 +85,12 @@ export function Spectrum(props: {
 	}
 
 	return (
-		<div>
-			<Canvas
-				draw={draw}
-				fps={fps}
-				width={width}
-				height={height}
-				className={props.className}
-			/>
-		</div>
+		<Canvas
+			draw={draw}
+			fps={fps}
+			width={width}
+			height={height}
+			className={props.className}
+		/>
 	);
 }

@@ -5,8 +5,8 @@ import { useEffect, useRef } from 'react';
 export function Canvas(props: {
 	fps: number;
 	draw: (ctx: CanvasRenderingContext2D) => void;
-	width: number;
-	height: number;
+	width?: number;
+	height?: number;
 	className: string | undefined;
 }) {
 	console.log('rerendered canvas');
@@ -19,6 +19,9 @@ export function Canvas(props: {
 		let animationFrameId = 0;
 		const canvas = canvasRef.current!;
 		const ctx = canvas.getContext('2d')!;
+
+		canvas.width = canvas.offsetWidth;
+		canvas.height = canvas.offsetHeight;
 
 		const interval = 1000 / fps;
 
@@ -46,14 +49,12 @@ export function Canvas(props: {
 		};
 	}, [draw, fps]);
 	return (
-		<div>
-			<canvas
-				ref={canvasRef}
-				// TODO: ! refactor
-				width={props.width}
-				height={props.height}
-				className={props.className}
-			/>
-		</div>
+		<canvas
+			ref={canvasRef}
+			width={props.width}
+			height={props.height}
+			// TODO: ! refactor
+			className={props.className}
+		/>
 	);
 }

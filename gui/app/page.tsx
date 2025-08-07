@@ -1,15 +1,23 @@
+'use client';
+
 import { Spectrum } from '@/components/Spectrum';
+import { useEffect } from 'react';
 
 export default function Home() {
+	useEffect(() => {
+		console.log(window.innerWidth);
+	}, []);
+
 	return (
-		<Spectrum
-			width={400}
-			height={400}
-			fill={true}
-			antiAliasing={false}
-			style='rgb(0,255,0)'
-			fps={30}
-			className='border-2 border-blue-500 w-full h-[30%]'
-		/>
+		<div className='w-full h-full'>
+			<Spectrum
+				width={10}
+				fill={false}
+				antiAliasing={true}
+				style='rgb(0,0,0)'
+				fps={50}
+				className='border-2 border-blue-500 w-full h-[50%]'
+			/>
+		</div>
 	);
 }
