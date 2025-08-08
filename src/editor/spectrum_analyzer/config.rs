@@ -1,5 +1,5 @@
 use crate::editor::spectrum_analyzer::monitor::MonitorMode;
-const DEFAULT_FREQ_RANGE: (f32, f32) = (10.0, 20_000.0); // hz
+const DEFAULT_FREQ_RANGE: (f32, f32) = (20.0, 20_000.0); // hz
 const DEFAULT_MAGNITUDE_RANGE: (f32, f32) = (-100.0, 6.0); // db
 const DEFAULT_SLOPE: f32 = 4.5; // db/oct (or at least should be)
 const DEFAULT_PEAK_DECAY: f32 = 0.25; // seconds
