@@ -1,4 +1,4 @@
-use nih_plug::util::gain_to_db_fast;
+use nih_plug::util::{gain_to_db, gain_to_db_fast};
 use std::f32::consts::PI;
 
 use crate::editor::spectrum_analyzer::{config::SpectrumAnalyzerConfig, WINDOW_LENGTH};
@@ -24,34 +24,37 @@ pub fn process_spectrum(
     };
     let mut output = vec![0.0; length];
 
-    for (i, res) in output.iter_mut().enumerate() {
+    for (index, res) in output.iter_mut().enumerate() {
         // i in [0, N[
         // x normalized to [0, 1[
-        let x = i as f32 / length as f32;
+        let normalized_freq = index as f32 / length as f32;
         // We want to map x to frequency in range [min, max[, log scale
         // Parameters k, b. f = k*b^x
-
         let b = max_freq / min_freq;
-        let f = min_freq * b.powf(x);
+        let current_freq_log = min_freq * b.powf(normalized_freq);
 
-        let w = f / sample_rate * length as f32;
+        // NOTE:
+        // if we skip interpolation, we get a blocky look
+        // this is because of how we snap to FFT bins
+        // (or at least, i think it's caused by that)
+
         // Closest FFT bin
+        let w = current_freq_log / sample_rate * length as f32;
         let p = (w as isize).clamp(0, (length / 2) as isize);
 
-        // slope implementation
+        let slope_factor_linear = calculate_slope_factor(current_freq_log, slope, sample_rate);
 
         if !config.interpolate {
-            // TODO: FIX!
+            // TODO: possibly refactor to reduce repitition
             let current_bin_linear = input[p as usize];
-            let sloped_bin_db = gain_to_db_fast(current_bin_linear);
+            // TODO: add config option for fast gain to db conversion
+            let sloped_bin_db = gain_to_db(current_bin_linear * slope_factor_linear);
             *res = sloped_bin_db;
             continue;
         }
-        let slope_factor_linear = calculate_slope_factor(x, slope, sample_rate);
 
         // Lanczos interpolation
-
-        // To interpolate in dB space:
+        // (expensive)
         let mut result = 0.;
         for iw in p - radius..=p + radius + 1 {
             if iw < 0 || iw > (length / 2) as isize {
@@ -71,24 +74,18 @@ pub fn process_spectrum(
             // dB space
             let current_bin_linear = input[iw as usize];
             let sloped_bin_linear = current_bin_linear * slope_factor_linear;
-            let sloped_bin_db = gain_to_db_fast(sloped_bin_linear);
+            let sloped_bin_db = gain_to_db(sloped_bin_linear);
 
             result += lanczos * sloped_bin_db;
         }
-        // If interpolated in linear space, convert to dB now
-        // *res = 20. * result.norm().log10();
-        // Otherwise use result directly
         *res = result;
     }
     output
 }
-// TODO: !! 90% sure this doesn't work
-pub fn calculate_slope_factor(normalized_frequency: f32, slope: f32, sample_rate: f32) -> f32 {
+fn calculate_slope_factor(freq: f32, slope: f32, sample_rate: f32) -> f32 {
     let half_nyquist = sample_rate / 2.0;
 
     let magnitude_slope_divisor = half_nyquist.log2().powf(slope) / slope;
-
-    let freq = normalized_frequency * half_nyquist;
     (freq + 1.).log2().powf(slope) / magnitude_slope_divisor
 }
 
