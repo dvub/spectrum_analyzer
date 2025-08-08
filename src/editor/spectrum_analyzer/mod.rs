@@ -28,7 +28,7 @@ pub struct SpectrumAnalyzerHelper {
 
     sample_rate: Arc<AtomicF32>,
 
-    config: SpectrumAnalyzerConfig,
+    pub config: SpectrumAnalyzerConfig,
 }
 
 impl SpectrumAnalyzerHelper {

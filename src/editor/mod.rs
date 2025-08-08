@@ -108,6 +108,9 @@ impl PluginGui {
             SpectrumAnalyzerConfigUpdate::DecaySpeed(speed) => {
                 self.spectrum_analyzer.set_monitor_decay_speed(speed);
             }
+            SpectrumAnalyzerConfigUpdate::Interpolate(n) => {
+                self.spectrum_analyzer.config.interpolate = n;
+            }
         }
     }
 }
