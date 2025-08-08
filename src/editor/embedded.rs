@@ -1,3 +1,4 @@
+#![cfg(feature = "embedded-gui")]
 use include_dir::include_dir;
 use nih_plug_webview::wry::{
     http::{Request, Response},
@@ -8,6 +9,7 @@ use std::{borrow::Cow, path::Path};
 // type refactoring is probably pointless?
 type Res = Response<Cow<'static, [u8]>>;
 type Protocol = dyn Fn(WebViewId, Request<Vec<u8>>) -> Res + 'static;
+
 pub fn build_protocol() -> Box<Protocol> {
     Box::new(move |_id, req: Request<Vec<u8>>| {
         let path = req.uri().path();

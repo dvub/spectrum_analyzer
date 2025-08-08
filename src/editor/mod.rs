@@ -2,7 +2,9 @@ mod embedded;
 mod ipc;
 mod spectrum_analyzer;
 
+#[cfg(feature = "embedded-gui")]
 use embedded::build_protocol;
+
 use ipc::{DrawData, DrawRequest, Message};
 use spectrum_analyzer::SpectrumAnalyzerHelper;
 
@@ -28,15 +30,14 @@ impl PluginGui {
     ) -> Option<Box<dyn Editor>> {
         // SOURCE
         let protocol_name = "assets".to_string();
-        let source = if cfg!(debug_assertions) {
-            WebViewSource::URL(String::from("http://localhost:3000"))
-        } else {
-            // with --release, we use a custom protocol
+        let source = if cfg!(feature = "embedded-gui") {
             // this protocol will bundle the GUI in the plugin
             WebViewSource::CustomProtocol {
                 protocol: protocol_name.clone(),
                 url: String::new(),
             }
+        } else {
+            WebViewSource::URL(String::from("http://localhost:3000"))
         };
         // CONFIG
         let config = WebViewConfig {
@@ -58,11 +59,11 @@ impl PluginGui {
             state,
             config,
             move |mut builder| {
-                if !cfg!(debug_assertions) {
-                    builder = builder.with_custom_protocol(protocol_name.clone(), build_protocol())
+                #[cfg(feature = "embedded-gui")]
+                {
+                    builder = builder.with_custom_protocol(protocol_name.clone(), build_protocol());
                 }
-                // if --release, no devtools available to users
-                builder = builder.with_devtools(cfg!(debug_assertions));
+                builder = builder.with_devtools(!cfg!(feature = "embedded-gui"));
                 builder
             },
         )))

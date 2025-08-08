@@ -2242,12 +2242,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rtrb"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad8388ea1a9e0ea807e442e8263a699e7edcb320ecbcd21b4fa8ff859acce3ba"
-
-[[package]]
 name = "rustc-demangle"
 version = "0.1.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2477,7 +2471,6 @@ dependencies = [
  "mime_guess",
  "nih_plug",
  "nih_plug_webview",
- "rtrb",
  "serde",
  "serde_json",
  "tempdir",
