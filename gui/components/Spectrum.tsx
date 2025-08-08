@@ -16,17 +16,7 @@ export function Spectrum(props: {
 	className?: string;
 }) {
 	const { fill, antiAliasing, style, width, height, fps } = props;
-
-	useEffect(() => {
-		const initMessage: Message = {
-			type: 'spectrumAnalyzerConfigUpdate',
-			data: {
-				type: 'fps',
-				data: fps,
-			},
-		};
-		window.plugin.send(JSON.stringify(initMessage));
-	}, [fps]);
+	
 
 	const coordinatesToDraw = useRef<[number, number][]>([]);
 	const listener = useCallback((m: Message) => {
@@ -38,6 +28,7 @@ export function Spectrum(props: {
 		}
 		const spectrumData = m.data.data;
 		coordinatesToDraw.current = spectrumData;
+		console.log(spectrumData);
 	}, []);
 	usePluginListener(listener);
 
