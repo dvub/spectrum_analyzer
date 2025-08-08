@@ -9,14 +9,14 @@ export default function Home() {
 	}, []);
 
 	return (
-		<div className='w-full h-full'>
+		<div className='w-[450px] h-[450px]'>
 			<Spectrum
 				width={10}
 				fill={false}
 				antiAliasing={true}
 				style='rgb(0,0,0)'
 				fps={50}
-				className='border-2 border-blue-500 w-full h-[50%]'
+				className='w-full h-full'
 			/>
 		</div>
 	);
