@@ -5,11 +5,11 @@ import { useEffect } from 'react';
 
 export default function Home() {
 	useEffect(() => {
-		console.log(window.innerWidth);
+		console.log('width: ', window.innerWidth);
 	}, []);
 
 	return (
-		<div className='w-[450px] h-[450px]'>
+		<div className='w-screen h-screen'>
 			<Spectrum
 				width={10}
 				fill={false}
