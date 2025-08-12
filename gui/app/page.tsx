@@ -1,13 +1,7 @@
 'use client';
 
 import { Spectrum } from '@/components/Spectrum';
-import { useEffect } from 'react';
-
 export default function Home() {
-	useEffect(() => {
-		console.log('width: ', window.innerWidth);
-	}, []);
-
 	return (
 		<div className='w-screen h-screen'>
 			<Spectrum
